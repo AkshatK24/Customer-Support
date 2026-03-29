@@ -58,6 +58,13 @@ app = create_app(
 
 
 # The built-in OpenEnv dashboard will be served at the root (/) if available.
+# However, we explicitly define a root handler to ensure Hugging Face
+# health checks (which send HEAD /) receive a 200 OK instead of a 405.
+@app.get("/", include_in_schema=False)
+@app.head("/", include_in_schema=False)
+def root():
+    """Hugging Face health check endpoint."""
+    return {"message": "OpenEnv Customer Support environment is running", "dashboard": "/"}
 
 
 @app.get("/health")

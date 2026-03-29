@@ -1,3 +1,13 @@
+---
+title: Customer Support Env
+emoji: 🎧
+colorFrom: pink
+colorTo: indigo
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # Customer Service Multi-Agent Environment
 
 [![OpenEnv](https://img.shields.io/badge/OpenEnv-Compatible-blue)](https://github.com/meta-pytorch/OpenEnv)

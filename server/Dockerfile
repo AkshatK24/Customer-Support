@@ -15,5 +15,5 @@ ENV PYTHONPATH="/app:$PYTHONPATH"
 # Expose HuggingFace Spaces port
 EXPOSE 7860
 
-# Run the FastAPI server
-CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
+# Run the FastAPI server with python module for better signal handling
+CMD ["python", "-m", "uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]

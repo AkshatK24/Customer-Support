@@ -294,13 +294,15 @@ class CustomerSupportEnvironment(MCPEnvironment):
         }
 
         from openenv.core.env_server.mcp_types import CallToolObservation
-        return CallToolObservation(
+        obs = CallToolObservation(
             tool_name="system",
             done=False,
             reward=0.0,
             metadata=metadata,
             result=metadata  # Put everything in result so it's visible in the dashboard box
         )
+        print("DEBUG: reset() returning obs:", obs.model_dump())
+        return obs
 
     # -------------------------------------------------------------------
     # step()
@@ -336,6 +338,7 @@ class CustomerSupportEnvironment(MCPEnvironment):
         return self._evaluate_step(action, obs)
 
     def _evaluate_step(self, action: Action, obs: Observation) -> Any:
+        print(f"DEBUG: _evaluate_step tool={getattr(action, 'tool_name', 'unknown')}")
         obs_dict = obs.model_dump() if hasattr(obs, "model_dump") else obs.dict()
         
         tool_name = getattr(action, "tool_name", getattr(action, "name", "unknown"))
@@ -407,19 +410,27 @@ class CustomerSupportEnvironment(MCPEnvironment):
                 self._step_reward -= 0.5
 
         self._total_reward += self._step_reward
-        obs_dict["done"] = self._done
-        obs_dict["reward"] = self._step_reward
-
+        
         meta = obs_dict.get("metadata", {})
         meta.update({
             "step": self._state.step_count,
             "cumulative_reward": round(self._total_reward, 3),
             "done": self._done,
         })
-        obs_dict["metadata"] = meta
+
+        # Build a clean dictionary for CallToolObservation constructor
+        # This prevents ValidationErrors from extra fields like 'type' or 'action'
+        clean_obs = {
+            "tool_name": obs_dict.get("tool_name", tool_name),
+            "result": obs_dict.get("result", result_payload),
+            "error": obs_dict.get("error"),
+            "done": self._done,
+            "reward": float(self._step_reward),
+            "metadata": meta,
+        }
 
         from openenv.core.env_server.mcp_types import CallToolObservation
-        return CallToolObservation(**obs_dict)
+        return CallToolObservation(**clean_obs)
 
     async def step_async(
         self,
