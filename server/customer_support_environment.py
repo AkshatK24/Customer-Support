@@ -297,7 +297,8 @@ class CustomerSupportEnvironment(MCPEnvironment):
         Returns:
             Initial observation containing the customer query and context
         """
-        if task not in TASK_REGISTRY:
+        # Default to 'easy' for predictable testing in the dashboard
+        if task is None or task not in TASK_REGISTRY:
             task = "easy"
 
         self._current_task = TASK_REGISTRY[task]
@@ -341,7 +342,13 @@ class CustomerSupportEnvironment(MCPEnvironment):
             ),
         }
 
-        return Observation(done=False, reward=0.0, metadata=metadata)
+        from openenv.core.env_server.mcp_types import CallToolObservation
+        return CallToolObservation(
+            done=False,
+            reward=0.0,
+            metadata=metadata,
+            result=metadata  # Put everything in result so it's visible in the dashboard box
+        )
 
     # -------------------------------------------------------------------
     # step()
@@ -359,7 +366,8 @@ class CustomerSupportEnvironment(MCPEnvironment):
         # Max steps enforcement
         if self._state.step_count >= SUPPORT_POLICIES["max_steps_per_episode"]:
             self._done = True
-            return Observation(
+            from openenv.core.env_server.mcp_types import CallToolObservation
+            return CallToolObservation(
                 done=True,
                 reward=-0.1,
                 metadata={
@@ -368,6 +376,7 @@ class CustomerSupportEnvironment(MCPEnvironment):
                     "total_reward": self._total_reward,
                     "steps_used": self._state.step_count,
                 },
+                result="Maximum steps reached. Episode terminated."
             )
 
         obs = super().step(action, timeout_s=timeout_s, **kwargs)
@@ -375,17 +384,14 @@ class CustomerSupportEnvironment(MCPEnvironment):
         # Accumulate reward
         self._total_reward += self._step_reward
 
-        # Attach reward and done flag
-        obs = Observation(
-            done=self._done,
-            reward=self._step_reward,
-            metadata={
-                **(obs.metadata or {}),
-                "step": self._state.step_count,
-                "cumulative_reward": round(self._total_reward, 3),
-                "done": self._done,
-            },
-        )
+        # Update the observation in-place to preserve 'result' and other MCP fields
+        obs.done = self._done
+        obs.reward = self._step_reward
+        obs.metadata.update({
+            "step": self._state.step_count,
+            "cumulative_reward": round(self._total_reward, 3),
+            "done": self._done,
+        })
 
         return obs
 
@@ -400,6 +406,10 @@ class CustomerSupportEnvironment(MCPEnvironment):
         self._step_reward = 0.0
         obs = await super().step_async(action, timeout_s=timeout_s, **kwargs)
         self._total_reward += self._step_reward
+        
+        # Consistent with synchronous step
+        obs.done = self._done
+        obs.reward = self._step_reward
         return obs
 
     def _step_impl(
@@ -410,11 +420,9 @@ class CustomerSupportEnvironment(MCPEnvironment):
     ) -> Observation:
         """
         Handle non-MCP actions (required by MCPEnvironment base class).
-
-        This environment uses MCP tools exclusively (ListToolsAction, CallToolAction).
-        Any other action type returns a helpful error observation.
         """
-        return Observation(
+        from openenv.core.env_server.mcp_types import CallToolObservation
+        return CallToolObservation(
             done=False,
             reward=-0.1,
             metadata={
@@ -424,7 +432,9 @@ class CustomerSupportEnvironment(MCPEnvironment):
                     "check_payment, search_kb, reply_customer, escalate_ticket."
                 )
             },
+            result=f"Error: Unknown action type {type(action).__name__}"
         )
+
 
     @property
     def state(self) -> State:

@@ -180,11 +180,26 @@ cython_debug/
 ehthumbs.db
 Thumbs.db
 
-# OpenEnv specific
-uv.lock
+# OpenEnv / Local Clutter
 outputs/
+*.txt
+!README.md
+!requirements.txt
 validate_output.txt
 baseline_output.txt
 inference_output*.txt
 out.txt
 tool_dir.txt
+
+# Windows / OS
+[Dd]esktop.ini
+[Tt]humbs.db
+$RECYCLE.BIN/
+
+# Editor / Backups
+*~
+*.bak
+*.swp
+*.tmp
+*.temp
+.DS_Store

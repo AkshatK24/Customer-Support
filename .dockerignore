@@ -39,15 +39,31 @@ venv.bak/
 .git/
 .gitignore
 
-# OpenEnv / App specific
+# OpenEnv / Local Clutter
 outputs/
-*.log
-uv.lock
-validate_output.txt
-baseline_output.txt
-inference_output*.txt
-out.txt
+*.txt
+!README.md
+!requirements.txt
+*output*.txt
+push-*.txt
+final-push*.txt
 tool_dir.txt
+out.txt
+*.resolved
+*.bak
+
+# Windows / OS
+[Dd]esktop.ini
+[Tt]humbs.db
+$RECYCLE.BIN/
+
+# Editor / Backups
+*~
+*.bak
+*.swp
+*.tmp
+*.temp
+.DS_Store
 
 # OS generated files
 .DS_Store
