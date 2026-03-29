@@ -199,12 +199,6 @@ docker build -t customer-support-env ./server
 docker run -p 8000:8000 customer-support-env
 ```
 
-### Deploy to Hugging Face Spaces
-
-```bash
-openenv push --repo-id your-username/customer-support-env
-```
-
 ## Baseline Scores
 
 Run the baseline evaluation script against a live server:
