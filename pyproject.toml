@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openenv-customer-support-env"
+version = "0.1.0"
+description = "Customer Service Multi-Agent Environment for OpenEnv — simulates real-world L1/L2/L3 support workflows"
+requires-python = ">=3.10"
+dependencies = [
+    # Core OpenEnv framework
+    "openenv-core[core]>=0.2.2",
+    # Web server
+    "fastapi>=0.115.0",
+    "uvicorn>=0.24.0",
+    # Data validation
+    "pydantic>=2.0.0",
+    # HTTP client
+    "requests>=2.31.0",
+    # Baseline agent
+    "openai>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "httpx>=0.25.0",   # for async test client
+]
+
+[project.scripts]
+# Run server via: uv run server
+server = "customer_support_env.server.app:main"
+
+[tool.setuptools]
+include-package-data = true
+packages = [
+    "customer_support_env",
+    "customer_support_env.server",
+    "customer_support_env.server.tasks",
+    "customer_support_env.server.graders",
+]
+[tool.setuptools.package-dir]
+"customer_support_env" = "."
+"customer_support_env.server" = "server"
+"customer_support_env.server.tasks" = "server/tasks"
+"customer_support_env.server.graders" = "server/graders"

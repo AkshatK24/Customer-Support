@@ -1,0 +1,8 @@
+{
+  "venvPath": "d:/Pro/customer_support_env",
+  "venv": ".venv",
+  "pythonVersion": "3.13",
+  "extraPaths": [
+    ".."
+  ]
+}
