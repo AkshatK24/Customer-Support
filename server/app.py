@@ -33,11 +33,10 @@ from typing import Any, Dict, Literal
 class LenientCallToolAction(CallToolAction):
     """
     A more flexible version of CallToolAction for the Web UI.
-    - Accepts both 'call' and 'call_tool' types.
     - Automatically parses JSON string arguments into dictionaries.
+    - Ignores extra fields like 'type'.
     """
-    type: Literal["call", "call_tool"] = "call_tool"
-    arguments: Dict[str, Any]
+    model_config = {"extra": "ignore"}
 
     @field_validator("arguments", mode="before")
     @classmethod
@@ -47,13 +46,6 @@ class LenientCallToolAction(CallToolAction):
                 return json.loads(v)
             except json.JSONDecodeError:
                 return v
-        return v
-
-    @field_validator("type", mode="before")
-    @classmethod
-    def handle_call_type(cls, v: Any) -> Any:
-        if v == "call":
-            return "call_tool"
         return v
 
 # Pass the class (not instance) so each WebSocket session gets a fresh env

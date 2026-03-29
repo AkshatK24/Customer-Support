@@ -54,8 +54,20 @@ class CustomerSupportEnvironment(MCPEnvironment):
     across 3 difficulty levels (L1 / L2 / L3 support tiers).
     """
 
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(CustomerSupportEnvironment, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
     def __init__(self) -> None:
         """Initialize environment with FastMCP tools and reset state."""
+        if getattr(self, "_initialized", False):
+            return
+            
+        print(f"DEBUG: __init__ env id={id(self)}")
         mcp = FastMCP("customer_support_env")
 
         # ---------------------------------------------------------------
@@ -75,16 +87,7 @@ class CustomerSupportEnvironment(MCPEnvironment):
             """
             order = get_order(order_id)
             if not order:
-                self._step_reward -= 0.1  # Penalty: invalid parameter
-                self._record_action("get_order_status", {"order_id": order_id}, {"error": f"Order {order_id} not found"})
                 return {"error": f"Order '{order_id}' not found. Please verify the order ID."}
-
-            # Check for relevance to current task
-            if self._current_task and order_id == self._current_task.get("order_id"):
-                self._step_reward += 0.2   # Reward: retrieved relevant data
-
-            self._retrieved_data["order"] = order
-            self._record_action("get_order_status", {"order_id": order_id}, order)
 
             return {
                 "order_id": order["order_id"],
@@ -120,15 +123,7 @@ class CustomerSupportEnvironment(MCPEnvironment):
             """
             payment = get_payment(transaction_id)
             if not payment:
-                self._step_reward -= 0.1  # Penalty: invalid parameter
-                self._record_action("check_payment", {"transaction_id": transaction_id}, {"error": f"Transaction {transaction_id} not found"})
                 return {"error": f"Transaction '{transaction_id}' not found."}
-
-            if self._current_task and transaction_id == self._current_task.get("transaction_id"):
-                self._step_reward += 0.2  # Reward: retrieved relevant data
-
-            self._retrieved_data["payment"] = payment
-            self._record_action("check_payment", {"transaction_id": transaction_id}, payment)
 
             result = {
                 "transaction_id": payment["transaction_id"],
@@ -147,7 +142,6 @@ class CustomerSupportEnvironment(MCPEnvironment):
                 "refund_policy": payment["refund_policy"],
             }
 
-            # Include extra gateway details for hard task (bank_debit_confirmed)
             if "bank_debit_confirmed" in payment:
                 result["bank_debit_confirmed"] = payment["bank_debit_confirmed"]
                 result["gateway_settlement_status"] = payment["gateway_settlement_status"]
@@ -172,14 +166,9 @@ class CustomerSupportEnvironment(MCPEnvironment):
                 title, category, relevance score, and content.
             """
             if not query or len(query.strip()) < 3:
-                self._step_reward -= 0.1  # Penalty: empty/trivial query
-                self._record_action("search_kb", {"query": query}, {"error": "Query too short"})
                 return {"error": "Query must be at least 3 characters long."}
 
             results = search_knowledge_base(query, top_k=3)
-            self._retrieved_data["kb_results"] = results
-            self._step_reward += 0.1  # Small reward for using KB (shows initiative)
-            self._record_action("search_kb", {"query": query}, results)
 
             if not results:
                 return {"message": "No relevant articles found.", "articles": []}
@@ -202,30 +191,11 @@ class CustomerSupportEnvironment(MCPEnvironment):
                 Confirmation that the response was sent and grading result.
             """
             if not response_text or len(response_text.strip()) < 10:
-                self._step_reward -= 0.2  # Penalty: empty/irrelevant response
-                self._record_action("reply_customer", {"response_text": response_text}, {"error": "Response too short"})
                 return {"error": "Response must be at least 10 characters long."}
-
-            self._final_response = response_text
-            self._record_action("reply_customer", {"response_text": response_text}, {"sent": True})
-
-            # Grade the episode
-            grade_score = self._compute_final_grade()
-            self._done = True
-
-            # Bonus reward for correct resolution
-            if grade_score >= 0.8:
-                self._step_reward += 0.4   # Correct resolution reward
-            elif grade_score >= 0.5:
-                self._step_reward += 0.2   # Partial resolution reward
-            else:
-                self._step_reward -= 0.2   # Penalty: irrelevant/wrong response
 
             return {
                 "sent": True,
                 "message": "Response delivered to customer. Episode complete.",
-                "grade_score": grade_score,
-                "steps_used": self._state.step_count,
             }
 
         # ---------------------------------------------------------------
@@ -241,29 +211,10 @@ class CustomerSupportEnvironment(MCPEnvironment):
             Returns:
                 Escalation confirmation and scoring impact.
             """
-            self._record_action("escalate_ticket", {}, {"escalated": True})
-            self._done = True
-
-            # Determine if escalation was warranted (e.g., after many steps)
-            max_steps = SUPPORT_POLICIES["max_steps_per_episode"]
-            escalation_threshold = SUPPORT_POLICIES["escalation_threshold_steps"]
-
-            if self._state.step_count >= escalation_threshold:
-                # Warranted — agent tried hard and escalated appropriately
-                self._step_reward += 0.1
-                return {
-                    "escalated": True,
-                    "verdict": "Escalation accepted — issue forwarded to human specialist.",
-                    "note": "Episode ended. Partial credit awarded for investigation effort.",
-                }
-            else:
-                # Unnecessary escalation penalty
-                self._step_reward -= 0.5
-                return {
-                    "escalated": True,
-                    "verdict": "Escalation recorded — but many self-service options remained.",
-                    "note": "Episode ended. Penalty applied for premature escalation.",
-                }
+            return {
+                "escalated": True,
+                "verdict": "Escalation accepted — issue forwarded to human specialist.",
+            }
 
         # Initialize base class with our FastMCP server
         super().__init__(mcp)
@@ -344,6 +295,7 @@ class CustomerSupportEnvironment(MCPEnvironment):
 
         from openenv.core.env_server.mcp_types import CallToolObservation
         return CallToolObservation(
+            tool_name="system",
             done=False,
             reward=0.0,
             metadata=metadata,
@@ -368,6 +320,7 @@ class CustomerSupportEnvironment(MCPEnvironment):
             self._done = True
             from openenv.core.env_server.mcp_types import CallToolObservation
             return CallToolObservation(
+                tool_name="timeout",
                 done=True,
                 reward=-0.1,
                 metadata={
@@ -380,20 +333,93 @@ class CustomerSupportEnvironment(MCPEnvironment):
             )
 
         obs = super().step(action, timeout_s=timeout_s, **kwargs)
+        return self._evaluate_step(action, obs)
 
-        # Accumulate reward
+    def _evaluate_step(self, action: Action, obs: Observation) -> Any:
+        obs_dict = obs.model_dump() if hasattr(obs, "model_dump") else obs.dict()
+        
+        tool_name = getattr(action, "tool_name", getattr(action, "name", "unknown"))
+        args = getattr(action, "arguments", {})
+        
+        result_payload = obs_dict.get("result", {})
+        if isinstance(result_payload, str):
+            result_payload = {"response": result_payload}
+        
+        is_error = "error" in result_payload or getattr(obs, "error", None) is not None
+
+        if "tool_name" not in obs_dict:
+            obs_dict["tool_name"] = tool_name
+        if "result" not in obs_dict:
+            obs_dict["result"] = obs_dict.get("metadata", {})
+
+        if tool_name == "get_order_status":
+            order_id = args.get("order_id")
+            if is_error or not order_id:
+                self._step_reward -= 0.1
+            else:
+                if self._current_task and order_id == self._current_task.get("order_id"):
+                    self._step_reward += 0.2
+            self._record_action(tool_name, args, result_payload)
+
+        elif tool_name == "check_payment":
+            txn_id = args.get("transaction_id")
+            if is_error or not txn_id:
+                self._step_reward -= 0.1
+            else:
+                if self._current_task and txn_id == self._current_task.get("transaction_id"):
+                    self._step_reward += 0.2
+            self._record_action(tool_name, args, result_payload)
+
+        elif tool_name == "search_kb":
+            query = args.get("query")
+            if is_error or not query or len(query.strip()) < 3:
+                self._step_reward -= 0.1
+            else:
+                self._step_reward += 0.1
+            self._record_action(tool_name, args, result_payload)
+
+        elif tool_name == "reply_customer":
+            resp_text = args.get("response_text", "")
+            if is_error or len(resp_text.strip()) < 10:
+                self._step_reward -= 0.2
+            else:
+                self._final_response = resp_text
+                self._record_action(tool_name, args, {"sent": True})
+                
+                grade_score = self._compute_final_grade()
+                self._done = True
+                obs_dict["result"]["grade_score"] = grade_score
+                obs_dict["result"]["steps_used"] = self._state.step_count
+
+                if grade_score >= 0.8:
+                    self._step_reward += 0.4
+                elif grade_score >= 0.5:
+                    self._step_reward += 0.2
+                else:
+                    self._step_reward -= 0.2
+
+        elif tool_name == "escalate_ticket":
+            self._record_action(tool_name, args, {"escalated": True})
+            self._done = True
+            if self._state.step_count >= SUPPORT_POLICIES["escalation_threshold_steps"]:
+                self._step_reward += 0.1
+            else:
+                self._step_reward -= 0.5
+
         self._total_reward += self._step_reward
+        obs_dict["done"] = self._done
+        obs_dict["reward"] = self._step_reward
 
-        # Update the observation in-place to preserve 'result' and other MCP fields
-        obs.done = self._done
-        obs.reward = self._step_reward
-        obs.metadata.update({
+        meta = obs_dict.get("metadata", {})
+        meta.update({
             "step": self._state.step_count,
             "cumulative_reward": round(self._total_reward, 3),
             "done": self._done,
         })
+        obs_dict["metadata"] = meta
 
-        return obs
+        from openenv.core.env_server.mcp_types import CallToolObservation
+        return CallToolObservation(**obs_dict)
 
     async def step_async(
         self,
@@ -404,13 +430,18 @@ class CustomerSupportEnvironment(MCPEnvironment):
         """Async step for WebSocket handler."""
         self._state.step_count += 1
         self._step_reward = 0.0
-        obs = await super().step_async(action, timeout_s=timeout_s, **kwargs)
-        self._total_reward += self._step_reward
         
-        # Consistent with synchronous step
-        obs.done = self._done
-        obs.reward = self._step_reward
-        return obs
+        if self._state.step_count >= SUPPORT_POLICIES["max_steps_per_episode"]:
+            self._done = True
+            from openenv.core.env_server.mcp_types import CallToolObservation
+            return CallToolObservation(
+                tool_name="timeout", done=True, reward=-0.1,
+                metadata={"status": "timeout", "message": "Max steps reached."},
+                result="Max steps reached."
+            )
+            
+        obs = await super().step_async(action, timeout_s=timeout_s, **kwargs)
+        return self._evaluate_step(action, obs)
 
     def _step_impl(
         self,
@@ -423,6 +454,7 @@ class CustomerSupportEnvironment(MCPEnvironment):
         """
         from openenv.core.env_server.mcp_types import CallToolObservation
         return CallToolObservation(
+            tool_name="system",
             done=False,
             reward=-0.1,
             metadata={

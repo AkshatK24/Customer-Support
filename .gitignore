@@ -203,3 +203,7 @@ $RECYCLE.BIN/
 *.tmp
 *.temp
 .DS_Store
+debug_*.py
+*.json
+!pyproject.toml
+!pyrightconfig.json

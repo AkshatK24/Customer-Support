@@ -79,3 +79,10 @@ Thumbs.db
 .nox/
 .coverage
 htmlcov/
+debug_*.py
+debug_*.txt
+*.json
+!pyproject.toml
+!pyrightconfig.json
+*.log
+debug_*

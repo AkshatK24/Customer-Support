@@ -47,7 +47,9 @@ def main() -> None:
             score = run_task(task, base_url=args.url, use_llm=args.llm)
             scores[task] = score
         except Exception as exc:
-            print(f"\n  ❌ Task '{task}' failed: {exc}")
+            import traceback
+            print(f"\n  X Task '{task}' failed: {exc}")
+            traceback.print_exc()
             scores[task] = 0.0
         time.sleep(0.3)  # small delay between tasks
 
@@ -58,7 +60,7 @@ def main() -> None:
     print("=" * 60)
     for task, score in scores.items():
         bar_len = int(score * 30)
-        bar = "█" * bar_len + "░" * (30 - bar_len)
+        bar = "#" * bar_len + "-" * (30 - bar_len)
         label = task.upper()
         print(f"  {label:8s}  {score:.3f}  |{bar}|")
 
