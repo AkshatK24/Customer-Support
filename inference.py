@@ -17,14 +17,16 @@ from typing import Any, Dict
 
 from openai import OpenAI
 from openenv.core.mcp_client import MCPToolClient
+from dotenv import load_dotenv
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Organizer-Mandated Variables
 # ---------------------------------------------------------------------------
 API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")  # Default if not provided
-SERVER_URL = os.getenv("OPENENV_SERVER_URL", "http://localhost:8000")
+MODEL_NAME = os.getenv("MODEL_NAME")  # Default if not provided
+SERVER_URL = os.getenv("OPENENV_SERVER_URL", "http://localhost:7860")
 
 MAX_ITERATIONS = 15
 TEMPERATURE = 0.2

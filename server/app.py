@@ -30,6 +30,8 @@ from pydantic import field_validator
 import json
 from typing import Any, Dict, Literal
 
+from openenv.core.env_server.serialization import _MCP_ACTION_TYPES
+
 class LenientCallToolAction(CallToolAction):
     """
     A more flexible version of CallToolAction for the Web UI.
@@ -47,6 +49,11 @@ class LenientCallToolAction(CallToolAction):
             except json.JSONDecodeError:
                 return v
         return v
+
+# Inject into MCP action types so that deserialize_action can correctly fail-over
+# to list_tools without validating against LenientCallToolAction falsely.
+_MCP_ACTION_TYPES["call_tool"] = LenientCallToolAction
+
 
 # Pass the class (not instance) so each WebSocket session gets a fresh env
 app = create_app(

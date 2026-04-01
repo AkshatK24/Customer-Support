@@ -65,6 +65,7 @@ Agents interact via **5 MCP tools**:
 | `search_kb` | `query: str` | Search internal knowledge base (ranked articles) |
 | `reply_customer` | `response_text: str` | Send response — **ends episode, triggers grading** |
 | `escalate_ticket` | _(none)_ | Escalate to human — ends episode |
+| `select_task` | `task_name: str` | Set difficulty for next reset ('easy', 'medium', 'hard') |
 
 ## Reward Function
 
@@ -146,15 +147,23 @@ uv pip install -e .
 
 ### Run the Server Locally
 
+The standard way to run the environment for the hackathon is via **uv**:
+
 ```bash
-# Using uvicorn directly
-uvicorn server.app:app --host 0.0.0.0 --port 8000
-
-# Or using uv project script
+# Start the server (default port 7860)
 uv run server
+```
 
-# Verify it's running
-curl http://localhost:8000/health
+Alternatively, you can use **uvicorn** directly:
+
+```bash
+# Start the uvicorn server on port 7860
+uvicorn server.app:app --host 0.0.0.0 --port 7860
+```
+
+**Verify it's running:**
+```bash
+curl http://localhost:7860/health
 ```
 
 ### Validate with OpenEnv CLI
@@ -162,6 +171,23 @@ curl http://localhost:8000/health
 ```bash
 openenv validate
 ```
+
+## 🖥️ Dashboard & UI Usage
+
+The environment includes a built-in explorer at **`http://localhost:8000`**. 
+
+### Switching Difficulty in the UI
+The dashboard's **Reset** button defaults to the **Easy** level. To test **Medium** or **Hard** levels:
+
+1.  **Select Task**: 
+    - Type: `call_tool`
+    - Tool Name: `select_task`
+    - Arguments: `{"task_name": "hard"}` (or `"medium"`)
+    - Click **Step**.
+2.  **Reset**: 
+    - Click **Reset**. The environment will now load the requested level.
+
+---
 
 ## Usage Instructions
 
@@ -215,18 +241,16 @@ Run the baseline evaluation script against a live server:
 
 To run it locally:
 ```bash
-# Start server first
-uvicorn server.app:app --port 8000 &
+### Evaluate the Environment
 
-# Set evaluation variables
-$env:HF_TOKEN="your_huggingface_write_token"
-$env:MODEL_NAME="gpt-4o-mini" # or an HF function-calling model
+Run the automated inference test to generate grades for all tasks:
 
-# Run the inference harness
-python inference.py
+```bash
+# Ensure server is running on port 7860 first
+python inference.py --model "gpt-4o-mini" --tasks all
 ```
 
-## Baseline Validation Scores
+This script connects to `http://localhost:7860` and evaluates the agent's performance across Easy, Medium, and Hard tiers.
 
 The internal deterministic rule-based agent (`scripts/run_baseline.py`) produces the following verified ground-truth scores representing optimal, flawless multi-step tool execution logic without hallucinations:
 
