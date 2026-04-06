@@ -333,7 +333,33 @@ class CustomerSupportEnvironment(MCPEnvironment):
         # ---------------------------------------------------------------
         # TOOL 6: select_task (Sticky Difficulty)
         # ---------------------------------------------------------------
-        # Initialize base class with our FastMCP server
+        # Initialize base class with our FastMCP server instance
+        
+        @mcp.tool
+        def select_task(task_name: str) -> dict:
+            """
+            Switch the difficulty level for the next episode.
+            Call with task_name = 'easy', 'medium', or 'hard'.
+            The change takes effect on the next reset().
+            """
+            valid_tasks = set(TASK_REGISTRY.keys())
+            if task_name not in valid_tasks:
+                return {
+                    "error": f"Unknown task '{task_name}'. Valid options: {sorted(valid_tasks)}"
+                }
+            try:
+                with open(CustomerSupportEnvironment._OVERRIDE_FILE, "w") as f:
+                    f.write(task_name)
+            except Exception as e:
+                return {"error": f"Failed to persist task selection: {str(e)}"}
+
+            return {
+                "selected": task_name,
+                "message": f"Task set to '{task_name}'. Call reset() to start the new episode.",
+            }
+            
+            
+               
         super().__init__(mcp)
 
         self._state = State(episode_id=str(uuid4()), step_count=0)
